@@ -151,10 +151,11 @@ export async function POST(request) {
       });
     });
 
+    // THIS WAS MISSING - Return the successful response
     return Response.json({ 
       success: true, 
-      cart: result, 
-      message: `Added ${quantity} item(s) to cart successfully` 
+      cart: result,
+      message: 'Item added to cart successfully'
     });
 
   } catch (error) {

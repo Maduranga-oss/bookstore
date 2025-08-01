@@ -1,4 +1,3 @@
-// ThemeContext.js
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
@@ -6,61 +5,43 @@ import { createContext, useContext, useEffect, useState } from 'react';
 const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState('system');
+  const [theme, setTheme] = useState('light');
   const [mounted, setMounted] = useState(false);
 
+  // Load saved theme on mount
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') || 'system';
-    setTheme(savedTheme);
     setMounted(true);
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    setTheme(savedTheme);
   }, []);
 
+  // Apply theme to document
   useEffect(() => {
     if (!mounted) return;
 
     const root = document.documentElement;
-    root.classList.remove('light', 'dark');
     
-    if (theme === 'system') {
-      const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      root.classList.add(systemPrefersDark ? 'dark' : 'light');
+    if (theme === 'dark') {
+      root.classList.add('dark');
+      root.classList.remove('light');
     } else {
-      root.classList.add(theme);
+      root.classList.add('light');
+      root.classList.remove('dark');
     }
     
     localStorage.setItem('theme', theme);
   }, [theme, mounted]);
 
-  useEffect(() => {
-    if (!mounted || theme !== 'system') return;
-
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = (e) => {
-      const root = document.documentElement;
-      root.classList.remove('light', 'dark');
-      root.classList.add(e.matches ? 'dark' : 'light');
-    };
-
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
-  }, [theme, mounted]);
-
-  const setThemeMode = (newTheme) => {
-    setTheme(newTheme);
+  const toggleTheme = () => {
+    setTheme(current => current === 'light' ? 'dark' : 'light');
   };
 
-  const resolvedTheme = mounted ? (
-    theme === 'system' 
-      ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-      : theme
-  ) : 'light';
-
-  // Remove visibility: hidden wrapper
   return (
     <ThemeContext.Provider value={{ 
       theme, 
-      resolvedTheme, 
-      setTheme: setThemeMode 
+      setTheme,
+      toggleTheme,
+      mounted
     }}>
       {children}
     </ThemeContext.Provider>

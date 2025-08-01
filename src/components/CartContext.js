@@ -116,7 +116,6 @@ const cartReducer = (state, action) => {
         isOpen: false
       };
 
-    // New action for retry mechanism
     case 'RETRY_FAILED_OPERATION':
       return {
         ...state,
@@ -137,43 +136,78 @@ const initialState = {
   retryOperation: null
 };
 
-// Enhanced toast notification helper with better UX
-const showToast = (message, type = 'success', duration = 5000) => {
-  // Remove existing toasts of the same type to prevent spam
-  const existingToasts = document.querySelectorAll(`.cart-toast-${type}`);
-  existingToasts.forEach(toast => toast.remove());
+// Enhanced toast notification system
+class ToastManager {
+  static createToast(message, type = 'success', duration = 4000) {
+    // Remove existing toasts of the same type
+    const existingToasts = document.querySelectorAll(`.cart-toast-${type}`);
+    existingToasts.forEach(toast => toast.remove());
 
-  const toast = document.createElement('div');
-  toast.className = `cart-toast cart-toast-${type} fixed top-4 right-4 px-4 py-3 rounded-lg shadow-lg z-50 max-w-sm text-white transform transition-all duration-300 ${
-    type === 'success' ? 'bg-green-500' : 
-    type === 'error' ? 'bg-red-500' : 
-    type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500'
-  }`;
-  
-  const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : type === 'warning' ? '⚠' : 'ℹ';
-  
-  toast.innerHTML = `
-    <div class="flex items-center">
-      <span class="mr-2 font-bold">${icon}</span>
-      <span class="flex-1">${message}</span>
-      <button class="ml-2 text-white hover:text-gray-200 transition-colors" onclick="this.parentElement.parentElement.remove()">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-        </svg>
-      </button>
-    </div>
-  `;
-  
-  document.body.appendChild(toast);
-  
-  // Auto-remove after specified duration
-  setTimeout(() => {
-    if (toast.parentElement) {
-      toast.style.transform = 'translateX(100%)';
-      setTimeout(() => toast.remove(), 300);
-    }
-  }, duration);
-};
+    const toast = document.createElement('div');
+    const toastId = `toast-${Date.now()}`;
+    toast.id = toastId;
+    toast.className = `cart-toast cart-toast-${type} fixed top-6 right-6 px-5 py-4 rounded-xl shadow-2xl z-50 max-w-sm transform transition-all duration-300 ease-out`;
+    
+    const colors = {
+      success: 'bg-gradient-to-r from-emerald-500 to-green-600 text-white',
+      error: 'bg-gradient-to-r from-red-500 to-rose-600 text-white',
+      warning: 'bg-gradient-to-r from-amber-500 to-orange-600 text-white',
+      info: 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white'
+    };
+    
+    const icons = {
+      success: `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                 </svg>`,
+      error: `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>`,
+      warning: `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.664-.833-2.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                </svg>`,
+      info: `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+             </svg>`
+    };
+    
+    toast.className += ` ${colors[type]}`;
+    
+    toast.innerHTML = `
+      <div class="flex items-start">
+        <div class="flex-shrink-0 mr-3 mt-0.5">
+          ${icons[type]}
+        </div>
+        <div class="flex-1 pr-2">
+          <p class="text-sm font-medium leading-relaxed">${message}</p>
+        </div>
+        <button class="flex-shrink-0 ml-2 text-white/80 hover:text-white transition-colors" onclick="document.getElementById('${toastId}').remove()">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+    `;
+    
+    // Add initial transform for animation
+    toast.style.transform = 'translateX(100%)';
+    document.body.appendChild(toast);
+    
+    // Trigger animation
+    requestAnimationFrame(() => {
+      toast.style.transform = 'translateX(0)';
+    });
+    
+    // Auto-remove after duration
+    setTimeout(() => {
+      if (document.getElementById(toastId)) {
+        toast.style.transform = 'translateX(100%)';
+        setTimeout(() => toast.remove(), 300);
+      }
+    }, duration);
+    
+    return toast;
+  }
+}
 
 export function CartProvider({ children }) {
   const [state, dispatch] = useReducer(cartReducer, initialState);
@@ -181,21 +215,23 @@ export function CartProvider({ children }) {
 
   // Enhanced auth token helper with expiry check
   const getAuthToken = useCallback(() => {
-    const token = localStorage.getItem('token');
-    const tokenExpiry = localStorage.getItem('tokenExpiry');
+    if (typeof window === 'undefined') return null;
+    
+    const token = window.localStorage.getItem('token');
+    const tokenExpiry = window.localStorage.getItem('tokenExpiry');
     
     if (!token) return null;
     
     if (tokenExpiry && new Date().getTime() > parseInt(tokenExpiry)) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('tokenExpiry');
+      window.localStorage.removeItem('token');
+      window.localStorage.removeItem('tokenExpiry');
       return null;
     }
     
     return token;
   }, []);
 
-  // Enhanced API request helper with retry logic
+  // Enhanced API request helper with better error handling
   const makeAuthenticatedRequest = useCallback(async (url, options = {}, retryCount = 0) => {
     const token = getAuthToken();
     if (!token) {
@@ -212,29 +248,60 @@ export function CartProvider({ children }) {
         }
       });
 
-      const responseData = await response.json();
+      const contentType = response.headers.get('content-type');
+      const isJson = contentType && contentType.includes('application/json');
+      
+      let responseData;
+      if (isJson) {
+        try {
+          responseData = await response.json();
+        } catch (jsonError) {
+          console.error('Failed to parse JSON response:', jsonError);
+          throw new Error('Server returned invalid response');
+        }
+      } else {
+        const textResponse = await response.text();
+        console.error('Non-JSON response received:', {
+          status: response.status,
+          contentType,
+          body: textResponse.substring(0, 500)
+        });
+        
+        if (response.status === 404) {
+          throw new Error('Service unavailable. Please try again later.');
+        } else if (response.status >= 500) {
+          throw new Error('Server error. Please try again later.');
+        } else {
+          throw new Error(`Request failed (${response.status})`);
+        }
+      }
       
       if (!response.ok) {
-        // Handle specific error cases
         if (response.status === 401) {
-          localStorage.removeItem('token');
-          localStorage.removeItem('tokenExpiry');
+          if (typeof window !== 'undefined') {
+            window.localStorage.removeItem('token');
+            window.localStorage.removeItem('tokenExpiry');
+          }
           throw new Error('Session expired. Please log in again.');
         }
         
         if (response.status === 429 && retryCount < 2) {
-          // Rate limiting - retry after delay
           await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
           return makeAuthenticatedRequest(url, options, retryCount + 1);
         }
         
-        throw new Error(responseData.error || `Request failed with status ${response.status}`);
+        throw new Error(responseData?.error || responseData?.message || `Request failed`);
       }
 
       return responseData;
     } catch (error) {
-      if (error.name === 'TypeError' && retryCount < 1) {
-        // Network error - retry once
+      console.error('API Request Error:', {
+        url,
+        method: options.method || 'GET',
+        error: error.message
+      });
+      
+      if (error.name === 'TypeError' && error.message.includes('fetch') && retryCount < 1) {
         await new Promise(resolve => setTimeout(resolve, 1000));
         return makeAuthenticatedRequest(url, options, retryCount + 1);
       }
@@ -242,7 +309,7 @@ export function CartProvider({ children }) {
     }
   }, [getAuthToken]);
 
-  // Load cart from API with better error handling
+  // Load cart from API
   const loadCart = useCallback(async () => {
     if (!isAuthenticated) return;
     
@@ -273,9 +340,9 @@ export function CartProvider({ children }) {
       dispatch({ type: 'SET_CART', payload: { items: [] } });
       
       if (error.message.includes('log in')) {
-        showToast(error.message, 'warning');
+        ToastManager.createToast(error.message, 'warning');
       } else {
-        showToast('Failed to load cart. Please try again.', 'error');
+        ToastManager.createToast('Failed to load cart. Please refresh the page.', 'error');
       }
     }
   }, [isAuthenticated, makeAuthenticatedRequest]);
@@ -289,27 +356,37 @@ export function CartProvider({ children }) {
     }
   }, [isAuthenticated, user, loadCart]);
 
-  // Calculate cart items count with memoization
+  // Calculate cart items count
   const cartItemsCount = useMemo(() => {
     return state.items.reduce((total, item) => total + item.quantity, 0);
   }, [state.items]);
 
-  // Calculate cart total with memoization
+  // Calculate cart total
   const cartTotal = useMemo(() => {
     return state.items.reduce((total, item) => total + (item.price * item.quantity), 0);
   }, [state.items]);
 
-  // Enhanced add to cart with stock validation
+  // Add to cart function
   const addToCart = useCallback(async (item, quantity = 1) => {
     if (!isAuthenticated) {
-      showToast('Please log in to add items to cart', 'warning');
-      return false;
+      return { 
+        success: false, 
+        message: 'Please sign in to add items to your cart',
+        type: 'warning'
+      };
     }
 
-    // Check stock availability
-    if (item.stock !== undefined && quantity > item.stock) {
-      showToast(`Only ${item.stock} items available in stock`, 'warning');
-      return false;
+    const existingItem = state.items.find(cartItem => cartItem.id === item.id);
+    const currentQuantity = existingItem ? existingItem.quantity : 0;
+    const newTotalQuantity = currentQuantity + quantity;
+    
+    if (item.stock !== undefined && newTotalQuantity > item.stock) {
+      return {
+        success: false,
+        message: `Only ${item.stock} items available in stock`,
+        type: 'warning',
+        maxQuantityReached: true
+      };
     }
 
     try {
@@ -338,27 +415,49 @@ export function CartProvider({ children }) {
         })) || [];
         
         dispatch({ type: 'SET_CART', payload: { items } });
-        showToast(data.message || 'Item added to cart successfully!', 'success');
-        return true;
+        
+        return {
+          success: true,
+          message: 'Added to cart successfully!',
+          type: 'success'
+        };
+      } else {
+        return {
+          success: false,
+          message: data.message || 'Failed to add item to cart',
+          type: 'error'
+        };
       }
     } catch (error) {
       console.error('Error adding to cart:', error);
       dispatch({ type: 'SET_ERROR', payload: error.message });
-      showToast(error.message || 'Failed to add item to cart', 'error');
-      return false;
+      
+      if (error.message && error.message.includes('maximum available quantity')) {
+        return {
+          success: false,
+          message: error.message,
+          type: 'warning',
+          maxQuantityReached: true
+        };
+      }
+      
+      return {
+        success: false,
+        message: 'Failed to add item to cart. Please try again.',
+        type: 'error'
+      };
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
-  }, [isAuthenticated, makeAuthenticatedRequest]);
+  }, [isAuthenticated, makeAuthenticatedRequest, state.items]);
 
-  // Enhanced remove from cart with better UX
+  // Remove from cart
   const removeFromCart = useCallback(async (itemId) => {
     if (!isAuthenticated) return false;
 
     const originalItems = [...state.items];
     
     try {
-      // Optimistic update
       dispatch({ type: 'REMOVE_ITEM', payload: itemId });
       
       const data = await makeAuthenticatedRequest('/api/cart/update', {
@@ -380,20 +479,19 @@ export function CartProvider({ children }) {
         })) || [];
         
         dispatch({ type: 'SET_CART', payload: { items } });
-        showToast(data.message || 'Item removed from cart', 'success');
+        ToastManager.createToast('Item removed from cart', 'success');
         return true;
       }
     } catch (error) {
       console.error('Error removing from cart:', error);
-      // Revert optimistic update
       dispatch({ type: 'SET_CART', payload: { items: originalItems } });
       dispatch({ type: 'SET_ERROR', payload: error.message });
-      showToast(error.message || 'Failed to remove item', 'error');
+      ToastManager.createToast('Failed to remove item', 'error');
       return false;
     }
   }, [isAuthenticated, makeAuthenticatedRequest, state.items]);
 
-  // Enhanced update quantity with debouncing
+  // Update quantity
   const updateQuantity = useCallback(async (itemId, quantity) => {
     if (!isAuthenticated) return false;
 
@@ -401,17 +499,15 @@ export function CartProvider({ children }) {
       return await removeFromCart(itemId);
     }
 
-    // Check stock availability
     const item = state.items.find(item => item.id === itemId);
     if (item?.stock !== undefined && quantity > item.stock) {
-      showToast(`Only ${item.stock} items available in stock`, 'warning');
+      ToastManager.createToast(`Only ${item.stock} items available`, 'warning');
       return false;
     }
 
     const originalItems = [...state.items];
 
     try {
-      // Optimistic update
       dispatch({ type: 'OPTIMISTIC_UPDATE', payload: { id: itemId, quantity } });
 
       const data = await makeAuthenticatedRequest('/api/cart/update', {
@@ -438,37 +534,29 @@ export function CartProvider({ children }) {
         })) || [];
         
         dispatch({ type: 'SET_CART', payload: { items } });
-        
-        // Show toast only for significant changes
-        const originalQuantity = originalItems.find(item => item.id === itemId)?.quantity || 0;
-        if (Math.abs(quantity - originalQuantity) > 2) {
-          showToast(data.message || 'Quantity updated successfully', 'success');
-        }
         return true;
       }
     } catch (error) {
       console.error('Error updating quantity:', error);
-      // Revert optimistic update
       dispatch({ type: 'SET_CART', payload: { items: originalItems } });
       dispatch({ type: 'SET_ERROR', payload: error.message });
-      showToast(error.message || 'Failed to update quantity', 'error');
+      ToastManager.createToast('Failed to update quantity', 'error');
       return false;
     }
   }, [isAuthenticated, makeAuthenticatedRequest, removeFromCart, state.items]);
 
-  // Enhanced clear cart with confirmation
+  // Clear cart
   const clearCart = useCallback(async (skipConfirmation = false) => {
     if (!isAuthenticated) return false;
 
     if (!skipConfirmation && state.items.length > 0) {
-      const confirmed = window.confirm('Are you sure you want to clear your cart? This action cannot be undone.');
+      const confirmed = window.confirm('Are you sure you want to clear your cart?');
       if (!confirmed) return false;
     }
 
     const originalItems = [...state.items];
 
     try {
-      // Optimistic update
       dispatch({ type: 'CLEAR_CART' });
 
       const data = await makeAuthenticatedRequest('/api/cart/clear', {
@@ -476,15 +564,14 @@ export function CartProvider({ children }) {
       });
 
       if (data.success) {
-        showToast(data.message || 'Cart cleared successfully', 'success');
+        ToastManager.createToast('Cart cleared successfully', 'success');
         return true;
       }
     } catch (error) {
       console.error('Error clearing cart:', error);
-      // Revert optimistic update
       dispatch({ type: 'SET_CART', payload: { items: originalItems } });
       dispatch({ type: 'SET_ERROR', payload: error.message });
-      showToast(error.message || 'Failed to clear cart', 'error');
+      ToastManager.createToast('Failed to clear cart', 'error');
       return false;
     }
   }, [isAuthenticated, makeAuthenticatedRequest, state.items]);
@@ -501,18 +588,16 @@ export function CartProvider({ children }) {
     dispatch({ type: 'CLEAR_ERROR' });
   }, []);
 
-  // Helper function to check if item is in cart
   const isInCart = useCallback((itemId) => {
     return state.items.some(item => item.id === itemId);
   }, [state.items]);
 
-  // Helper function to get item quantity in cart
   const getItemQuantity = useCallback((itemId) => {
     const item = state.items.find(item => item.id === itemId);
     return item ? item.quantity : 0;
   }, [state.items]);
 
-  // Memoize the context value to prevent unnecessary re-renders
+  // Memoize context value
   const value = useMemo(() => ({
     items: state.items,
     isOpen: state.isOpen,
